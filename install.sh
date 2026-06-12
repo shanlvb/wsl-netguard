@@ -15,6 +15,7 @@ install_deps=1
 install_sing_box="${WSL_NETGUARD_INSTALL_SING_BOX:-1}"
 skip_wsl_check="${WSL_NETGUARD_SKIP_WSL_CHECK:-0}"
 github_proxy="${WSL_NETGUARD_GITHUB_PROXY:-}"
+tmp_dir=""
 
 usage() {
 	cat <<USAGE
@@ -54,6 +55,12 @@ log() {
 die() {
 	log "error: $*"
 	exit 1
+}
+
+cleanup_tmp_dir() {
+	if [[ -n "${tmp_dir:-}" && -d "${tmp_dir}" ]]; then
+		rm -rf "${tmp_dir}"
+	fi
 }
 
 need_cmd() {
@@ -441,7 +448,6 @@ main() {
 
 	local arch
 	local resolved_version
-	local tmp_dir
 
 	arch="$(detect_arch)"
 	resolved_version="$(resolve_version)"
@@ -450,7 +456,7 @@ main() {
 	fi
 
 	tmp_dir="$(mktemp -d)"
-	trap 'rm -rf "${tmp_dir}"' EXIT
+	trap cleanup_tmp_dir EXIT
 
 	install_release "${resolved_version}" "${arch}" "${tmp_dir}"
 	log "done"

@@ -15,13 +15,19 @@ type ExecRunner struct {
 }
 
 func (runner ExecRunner) Run(ctx context.Context, name string, args ...string) error {
+	var stderr bytes.Buffer
 	// #nosec G204 -- command names and arguments are built by internal command planners; no shell is invoked.
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = runner.Stdout
-	cmd.Stderr = runner.Stderr
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("run %s: %w", commandString(name, args), err)
+		return commandError(name, args, err, stderr.String())
+	}
+	if runner.Stderr != nil && stderr.Len() > 0 {
+		if _, err := io.Copy(runner.Stderr, &stderr); err != nil {
+			return fmt.Errorf("forward stderr from %s: %w", commandString(name, args), err)
+		}
 	}
 	return nil
 }

@@ -41,6 +41,27 @@ func TestExecRunnerRunWrapsFailure(t *testing.T) {
 	}
 }
 
+func TestExecRunnerRunIncludesStderrOnFailure(t *testing.T) {
+	var stderr bytes.Buffer
+	runner := ExecRunner{
+		Stderr: &stderr,
+	}
+
+	err := runner.Run(context.Background(), "sh", "-c", "printf boom >&2; exit 3")
+
+	if err == nil {
+		t.Fatal("Run returned nil error; want failure")
+	}
+	for _, want := range []string{"run sh -c printf boom >&2; exit 3", "boom"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("Run error = %q; want mention %q", err.Error(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q; want failure stderr captured in returned error only", stderr.String())
+	}
+}
+
 func TestExecRunnerOutputReturnsStdout(t *testing.T) {
 	runner := ExecRunner{}
 

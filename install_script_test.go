@@ -84,6 +84,24 @@ func TestInstallScriptPinsManagedSingBoxRelease(t *testing.T) {
 	}
 }
 
+func TestInstallScriptCleanupTrapUsesGlobalTmpDir(t *testing.T) {
+	script := readTextFile(t, "install.sh")
+
+	for _, want := range []string{
+		`tmp_dir=""`,
+		"cleanup_tmp_dir()",
+		`"${tmp_dir:-}"`,
+		"trap cleanup_tmp_dir EXIT",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("install.sh missing safe temp directory cleanup detail %q", want)
+		}
+	}
+	if strings.Contains(script, `trap 'rm -rf "${tmp_dir}"' EXIT`) {
+		t.Fatal("install.sh cleanup trap must not reference a local tmp_dir after main returns")
+	}
+}
+
 func TestREADMEUsesOnlineOneClickInstaller(t *testing.T) {
 	readme := readTextFile(t, "README.md")
 	command := "curl -fsSL " + onlineInstallURL + " | bash"
