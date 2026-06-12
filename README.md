@@ -10,7 +10,7 @@
 
 本项目全程使用 Codex 辅助开发、测试和文档整理。开发过程中参考并使用了 [ECC](https://github.com/affaan-m/ECC) 的工程规范内容，感谢 ECC 项目提供的规则与实践启发。
 
-本文假设你已经获得可执行文件 `wsl-netguard`，并且 WSL 内具备运行 `sing-box`、`nftables` 和 systemd 服务的基础环境。
+如果使用下方一键安装脚本，脚本会自动下载 release 产物并安装 `wsl-netguard` 受管理文件。手工安装流程则假设你已经获得可执行文件 `wsl-netguard`，并且 WSL 内具备运行 `sing-box`、`nftables` 和 systemd 服务的基础环境。
 
 ## 解决的问题
 
@@ -71,7 +71,7 @@ flowchart LR
 - 不自动修改 Windows 防火墙。
 - 不替代 v2rayN、Mihomo、sing-box 等完整代理客户端。
 - 不保证 `ping` 通过代理，因为 SOCKS5 / HTTP 代理通常不代理 ICMP。
-- 不在当前 README 中展开安装、升级和不同 WSL 发行版的部署差异。
+- 不管理所有 WSL 发行版的包源差异，尤其是 `sing-box` 的发行版安装方式。
 
 ## 代理软件兼容性
 
@@ -262,7 +262,67 @@ sudo wsl-netguard restart
 
 ## 使用方式
 
-### 获取二进制
+### 在线一键安装（推荐）
+
+在线安装脚本位于 GitHub raw 地址，可以直接在 WSL 内执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash
+```
+
+脚本会执行以下动作：
+
+- 确认当前环境是 WSL。
+- 尝试通过系统包管理器安装常见基础依赖，例如 `ca-certificates`、`curl`、`tar`、`coreutils`、`iproute2` 和 `nftables`。
+- 根据当前架构下载 GitHub Releases 中的 `linux_amd64` 或 `linux_arm64` 产物。
+- 下载 `checksums.txt` 并使用 `sha256sum -c` 校验 release 包。
+- 调用 `sudo wsl-netguard install` 安装二进制、默认配置、sing-box 模板和 systemd unit。
+
+默认安装不会启用网络接管，也不会应用 nftables kill switch。安装完成后建议先运行诊断：
+
+```bash
+wsl-netguard doctor
+```
+
+确认 Windows 代理端口和 WSL 依赖都正常后，再显式启用：
+
+```bash
+sudo wsl-netguard enable
+```
+
+如果你明确希望安装后立即启用，可以传入 `--enable`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --enable
+```
+
+`--enable` 会调用现有 CLI 的启用流程：执行预检、渲染运行时配置、应用受管理的 `table inet wsl_netguard`，并启动 systemd 服务。代理端口不可达、`sing-box` 缺失、systemd 不可用或 TUN 环境不满足时会失败，不会静默降级为直连。
+
+安装指定版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --version v0.1.0
+```
+
+跳过系统包安装，只下载并安装 `wsl-netguard`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --no-deps
+```
+
+如果仓库或 release 仍是私有状态，需要提供可读取仓库和 release 的 GitHub token：
+
+```bash
+export GH_TOKEN="your-github-token"
+curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+  https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash
+```
+
+脚本会把 `GH_TOKEN` 继续用于 GitHub API 和 release 产物下载。公开仓库不需要 token。
+
+注意：脚本不会从第三方源自动安装 `sing-box`。不同发行版的 `sing-box` 包源差异较大，请先按你信任的方式安装 `sing-box`，或在安装后根据 `wsl-netguard doctor` 的输出补齐。
+
+### 手工获取二进制
 
 项目托管在 GitHub：
 
