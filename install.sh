@@ -9,6 +9,7 @@ version="${WSL_NETGUARD_VERSION:-latest}"
 enable_after_install=0
 install_deps=1
 skip_wsl_check="${WSL_NETGUARD_SKIP_WSL_CHECK:-0}"
+github_proxy="${WSL_NETGUARD_GITHUB_PROXY:-}"
 
 usage() {
 	cat <<USAGE
@@ -22,13 +23,15 @@ Options:
   --repo <owner/name>   Install from another GitHub repository.
   --enable              Enable network interception after installation.
   --no-deps             Do not install common OS packages.
+  --github-proxy <url>  Prefix GitHub URLs with a trusted mirror, for example https://gh.llkk.cc/.
   --skip-wsl-check      Allow running outside WSL.
   -h, --help            Show this help.
 
 Environment:
-  WSL_NETGUARD_VERSION  Release tag to install. Defaults to latest.
-  WSL_NETGUARD_REPO     GitHub repository. Defaults to ${GITHUB_REPO_DEFAULT}.
-  GH_TOKEN              Optional GitHub token for private repositories.
+  WSL_NETGUARD_VERSION       Release tag to install. Defaults to latest.
+  WSL_NETGUARD_REPO          GitHub repository. Defaults to ${GITHUB_REPO_DEFAULT}.
+  WSL_NETGUARD_GITHUB_PROXY  Optional trusted GitHub URL prefix.
+  GH_TOKEN                   Optional GitHub token for private repositories.
 
 Online installer:
   curl -fsSL ${RAW_INSTALL_URL} | bash
@@ -87,6 +90,15 @@ parse_args() {
 			install_deps=0
 			shift
 			;;
+		--github-proxy)
+			[[ "$#" -ge 2 ]] || die "--github-proxy requires a value"
+			github_proxy="$2"
+			shift 2
+			;;
+		--github-proxy=*)
+			github_proxy="${1#*=}"
+			shift
+			;;
 		--skip-wsl-check)
 			skip_wsl_check=1
 			shift
@@ -108,6 +120,27 @@ validate_inputs() {
 	fi
 	if [[ "${version}" != "latest" && ! "${version}" =~ ^[A-Za-z0-9._-]+$ ]]; then
 		die "invalid release tag ${version}; use letters, numbers, dot, underscore, or dash"
+	fi
+	validate_github_proxy
+	warn_if_proxy_receives_token
+}
+
+validate_github_proxy() {
+	if [[ -z "${github_proxy}" ]]; then
+		return
+	fi
+	if [[ ! "${github_proxy}" =~ ^https?://[^[:space:]]+$ ]]; then
+		die "invalid GitHub proxy ${github_proxy}; expected an http(s) URL prefix"
+	fi
+	github_proxy="${github_proxy%/}/"
+}
+
+warn_if_proxy_receives_token() {
+	if [[ -z "${github_proxy}" ]]; then
+		return
+	fi
+	if [[ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]]; then
+		log "warning: GH_TOKEN/GITHUB_TOKEN will be sent to the configured GitHub proxy"
 	fi
 }
 
@@ -225,6 +258,15 @@ curl_args() {
 	fi
 }
 
+proxied_url() {
+	local url="$1"
+	if [[ -z "${github_proxy}" ]]; then
+		printf '%s\n' "${url}"
+		return
+	fi
+	printf '%s%s\n' "${github_proxy}" "${url}"
+}
+
 github_get() {
 	local url="$1"
 	local args=()
@@ -232,7 +274,7 @@ github_get() {
 		args+=("${arg}")
 	done < <(curl_args)
 
-	curl "${args[@]}" "${url}"
+	curl "${args[@]}" "$(proxied_url "${url}")"
 }
 
 download_to() {
@@ -243,7 +285,7 @@ download_to() {
 		args+=("${arg}")
 	done < <(curl_args)
 
-	curl "${args[@]}" -o "${output}" "${url}"
+	curl "${args[@]}" -o "${output}" "$(proxied_url "${url}")"
 }
 
 resolve_version() {

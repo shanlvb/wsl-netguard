@@ -8,7 +8,11 @@ import (
 	"testing"
 )
 
-const onlineInstallURL = "https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh"
+const (
+	onlineInstallURL         = "https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh"
+	domesticGitHubProxyURL   = "https://gh.llkk.cc/"
+	domesticOnlineInstallURL = domesticGitHubProxyURL + onlineInstallURL
+)
 
 func TestInstallScriptSyntax(t *testing.T) {
 	cmd := exec.Command("bash", "-n", "install.sh")
@@ -40,6 +44,10 @@ func TestInstallScriptSafetyInvariants(t *testing.T) {
 		"sha256sum -c",
 		"tar -tzf",
 		"release archive contains unsafe path",
+		"WSL_NETGUARD_GITHUB_PROXY",
+		"--github-proxy",
+		"validate_github_proxy",
+		"proxied_url",
 		"enable_after_install=0",
 		"wsl-netguard install",
 	} {
@@ -62,6 +70,23 @@ func TestREADMEUsesOnlineOneClickInstaller(t *testing.T) {
 	}
 	if !strings.Contains(readme, onlineInstallURL) {
 		t.Fatalf("README.md missing online installer URL %q", onlineInstallURL)
+	}
+}
+
+func TestREADMEDocumentsDomesticAcceleratedInstaller(t *testing.T) {
+	readme := readTextFile(t, "README.md")
+	command := "curl -fsSL " + domesticOnlineInstallURL + " | WSL_NETGUARD_GITHUB_PROXY=" + domesticGitHubProxyURL + " bash"
+
+	for _, want := range []string{
+		"国内加速",
+		domesticGitHubProxyURL,
+		command,
+		"第三方",
+		"可信",
+	} {
+		if !strings.Contains(readme, want) {
+			t.Fatalf("README.md missing domestic accelerated installer detail %q", want)
+		}
 	}
 }
 

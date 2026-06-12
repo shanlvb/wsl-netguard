@@ -270,6 +270,31 @@ sudo wsl-netguard restart
 curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash
 ```
 
+### 国内加速地址（可选）
+
+如果访问 GitHub raw 或 release 产物较慢，可以使用 GitHub 加速前缀。下面以 `https://gh.llkk.cc/` 为例：
+
+```bash
+curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/ bash
+```
+
+这里有两个加速点：
+
+- `https://gh.llkk.cc/https://raw.githubusercontent.com/...` 用于下载在线安装脚本本身。
+- `WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/` 会让脚本内部访问 GitHub API、release 包和 `checksums.txt` 时也使用同一个加速前缀。
+
+也可以把加速前缀作为脚本参数传入：
+
+```bash
+curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --github-proxy https://gh.llkk.cc/
+```
+
+注意：这类 GitHub 加速服务是第三方服务，不是本项目或 GitHub 官方服务。只有在你信任该加速服务时才使用它；如果需要使用 `GH_TOKEN` 访问私有仓库，不建议把 token 发送给不可信的第三方加速服务。加速服务如果不支持 GitHub API 的 latest 查询，可以指定版本安装：
+
+```bash
+curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/ bash -s -- --version v0.1.0
+```
+
 脚本会执行以下动作：
 
 - 确认当前环境是 WSL。
