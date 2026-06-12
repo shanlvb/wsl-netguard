@@ -8,6 +8,8 @@
 
 当前仓库处于早期 MVP 阶段，核心命令、配置渲染、诊断、恢复、版本信息、GitHub Release 构建和基础测试已经存在。不同 WSL 发行版的安装差异、包管理器分发和完整手工验收清单仍会继续完善。
 
+本项目全程使用 Codex 辅助开发、测试和文档整理。开发过程中参考并使用了 [ECC](https://github.com/affaan-m/ECC) 的工程规范内容，感谢 ECC 项目提供的规则与实践启发。
+
 本文假设你已经获得可执行文件 `wsl-netguard`，并且 WSL 内具备运行 `sing-box`、`nftables` 和 systemd 服务的基础环境。
 
 ## 解决的问题
@@ -26,22 +28,28 @@
 
 典型流量路径如下：
 
-```text
-WSL 应用
-  -> WSL 内的 sing-box TUN 接口（默认 wng-tun）
-  -> Windows 宿主机代理端口（SOCKS5 或 HTTP）
-  -> Windows 代理软件
-  -> 代理节点或上游网络
-  -> 外部网络
+```mermaid
+flowchart LR
+    app["WSL 应用"]
+    tun["WSL 内的 sing-box TUN 接口<br/>默认 wng-tun"]
+    port["Windows 宿主机代理端口<br/>SOCKS5 或 HTTP"]
+    proxy["Windows 代理软件"]
+    upstream["代理节点或上游网络"]
+    internet["外部网络"]
+
+    app --> tun --> port --> proxy --> upstream --> internet
 ```
 
 当代理软件不可达时：
 
-```text
-WSL 应用
-  -> 试图访问外部网络
-  -> nftables kill switch 阻止直连
-  -> 请求失败，而不是绕过代理出站
+```mermaid
+flowchart LR
+    app["WSL 应用"]
+    direct["试图访问外部网络"]
+    kill["nftables kill switch<br/>阻止直连"]
+    fail["请求失败<br/>而不是绕过代理出站"]
+
+    app --> direct --> kill --> fail
 ```
 
 工具启动时会动态检测 Windows 宿主机 IP，并在检测时排除自己管理的 TUN 接口，避免把 `wng-tun` 误判为原始网关。运行时生成的 sing-box 配置、nftables 规则和状态文件会写入 `/run/wsl-netguard`。
