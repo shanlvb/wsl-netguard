@@ -20,10 +20,37 @@ func TestSingBoxJSONRendersSOCKSProxy(t *testing.T) {
 	if !json.Valid(data) {
 		t.Fatalf("SingBoxJSON returned invalid JSON:\n%s", string(data))
 	}
+	mustNotContain(t, string(data), `"sniff":`)
+	mustNotContain(t, string(data), `"protocol": ""`)
 
 	got := decodeSingBoxConfig(t, data)
 	if got.DNS.Strategy != cfg.DNSStrategy {
 		t.Fatalf("DNS strategy = %q; want %q", got.DNS.Strategy, cfg.DNSStrategy)
+	}
+	if len(got.DNS.Servers) != 1 {
+		t.Fatalf("DNS servers length = %d; want 1", len(got.DNS.Servers))
+	}
+	dnsServer := got.DNS.Servers[0]
+	if dnsServer.Type != "https" {
+		t.Fatalf("DNS server type = %q; want https", dnsServer.Type)
+	}
+	if dnsServer.Tag != "remote-doh" {
+		t.Fatalf("DNS server tag = %q; want remote-doh", dnsServer.Tag)
+	}
+	if dnsServer.Server != "1.1.1.1" {
+		t.Fatalf("DNS server = %q; want 1.1.1.1", dnsServer.Server)
+	}
+	if dnsServer.ServerPort != 443 {
+		t.Fatalf("DNS server_port = %d; want 443", dnsServer.ServerPort)
+	}
+	if dnsServer.Path != "/dns-query" {
+		t.Fatalf("DNS server path = %q; want /dns-query", dnsServer.Path)
+	}
+	if dnsServer.Detour != "proxy" {
+		t.Fatalf("DNS server detour = %q; want proxy", dnsServer.Detour)
+	}
+	if dnsServer.Address != "" {
+		t.Fatalf("DNS server uses legacy address field %q; want empty", dnsServer.Address)
 	}
 	if len(got.Inbounds) != 1 {
 		t.Fatalf("inbounds length = %d; want 1", len(got.Inbounds))
@@ -42,6 +69,9 @@ func TestSingBoxJSONRendersSOCKSProxy(t *testing.T) {
 		t.Fatalf("auto_route/strict_route = %v/%v; want true/true", inbound.AutoRoute, inbound.StrictRoute)
 	}
 
+	if len(got.Outbounds) != 1 {
+		t.Fatalf("outbounds length = %d; want 1", len(got.Outbounds))
+	}
 	proxy := findOutbound(t, got.Outbounds, "proxy")
 	if proxy.Type != "socks" {
 		t.Fatalf("proxy type = %q; want socks", proxy.Type)
@@ -57,6 +87,22 @@ func TestSingBoxJSONRendersSOCKSProxy(t *testing.T) {
 	}
 	if got.Route.Final != "proxy" {
 		t.Fatalf("route final = %q; want proxy", got.Route.Final)
+	}
+	if len(got.Route.Rules) != 2 {
+		t.Fatalf("route rules length = %d; want 2", len(got.Route.Rules))
+	}
+	if got.Route.Rules[0].Action != "sniff" {
+		t.Fatalf("first route rule action = %q; want sniff", got.Route.Rules[0].Action)
+	}
+	dnsRule := got.Route.Rules[1]
+	if dnsRule.Protocol != "dns" {
+		t.Fatalf("route rule protocol = %q; want dns", dnsRule.Protocol)
+	}
+	if dnsRule.Action != "hijack-dns" {
+		t.Fatalf("route rule action = %q; want hijack-dns", dnsRule.Action)
+	}
+	if dnsRule.Outbound != "" {
+		t.Fatalf("route rule uses legacy outbound = %q; want empty", dnsRule.Outbound)
 	}
 	if !got.Route.AutoDetectInterface {
 		t.Fatal("route auto_detect_interface = false; want true")
@@ -193,7 +239,8 @@ func TestRenderRejectsInvalidInput(t *testing.T) {
 
 type singBoxConfig struct {
 	DNS struct {
-		Strategy string `json:"strategy"`
+		Servers  []testDNSServer `json:"servers"`
+		Strategy string          `json:"strategy"`
 	} `json:"dns"`
 	Inbounds []struct {
 		Type          string   `json:"type"`
@@ -204,9 +251,20 @@ type singBoxConfig struct {
 	} `json:"inbounds"`
 	Outbounds []testOutbound `json:"outbounds"`
 	Route     struct {
-		AutoDetectInterface bool   `json:"auto_detect_interface"`
-		Final               string `json:"final"`
+		Rules               []testRouteRule `json:"rules"`
+		AutoDetectInterface bool            `json:"auto_detect_interface"`
+		Final               string          `json:"final"`
 	} `json:"route"`
+}
+
+type testDNSServer struct {
+	Type       string `json:"type"`
+	Tag        string `json:"tag"`
+	Server     string `json:"server"`
+	ServerPort int    `json:"server_port"`
+	Path       string `json:"path"`
+	Detour     string `json:"detour"`
+	Address    string `json:"address"`
 }
 
 type testOutbound struct {
@@ -215,6 +273,12 @@ type testOutbound struct {
 	Server     string `json:"server"`
 	ServerPort int    `json:"server_port"`
 	Version    string `json:"version"`
+}
+
+type testRouteRule struct {
+	Protocol string `json:"protocol"`
+	Action   string `json:"action"`
+	Outbound string `json:"outbound"`
 }
 
 func decodeSingBoxConfig(t *testing.T, data []byte) singBoxConfig {

@@ -36,9 +36,12 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 		DNS: singBoxDNS{
 			Servers: []singBoxDNSServer{
 				{
-					Tag:     "remote-doh",
-					Address: "https://1.1.1.1/dns-query",
-					Detour:  "proxy",
+					Type:       "https",
+					Tag:        "remote-doh",
+					Server:     "1.1.1.1",
+					ServerPort: 443,
+					Path:       "/dns-query",
+					Detour:     "proxy",
 				},
 			},
 			Final:    "remote-doh",
@@ -54,7 +57,6 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 				AutoRoute:     true,
 				StrictRoute:   true,
 				Stack:         "system",
-				Sniff:         true,
 			},
 		},
 		Outbounds: []singBoxOutbound{
@@ -65,14 +67,15 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 				ServerPort: proxyPort,
 				Version:    socksVersion(proxyType),
 			},
-			{Type: "dns", Tag: "dns-out"},
-			{Type: "block", Tag: "block"},
 		},
 		Route: singBoxRoute{
 			Rules: []singBoxRouteRule{
 				{
+					Action: "sniff",
+				},
+				{
 					Protocol: "dns",
-					Outbound: "dns-out",
+					Action:   "hijack-dns",
 				},
 			},
 			AutoDetectInterface: true,
@@ -185,9 +188,12 @@ type singBoxDNS struct {
 }
 
 type singBoxDNSServer struct {
-	Tag     string `json:"tag"`
-	Address string `json:"address"`
-	Detour  string `json:"detour"`
+	Type       string `json:"type"`
+	Tag        string `json:"tag"`
+	Server     string `json:"server"`
+	ServerPort int    `json:"server_port"`
+	Path       string `json:"path"`
+	Detour     string `json:"detour"`
 }
 
 type singBoxInbound struct {
@@ -199,7 +205,6 @@ type singBoxInbound struct {
 	AutoRoute     bool     `json:"auto_route"`
 	StrictRoute   bool     `json:"strict_route"`
 	Stack         string   `json:"stack"`
-	Sniff         bool     `json:"sniff"`
 }
 
 type singBoxOutbound struct {
@@ -217,6 +222,7 @@ type singBoxRoute struct {
 }
 
 type singBoxRouteRule struct {
-	Protocol string `json:"protocol"`
-	Outbound string `json:"outbound"`
+	Protocol string `json:"protocol,omitempty"`
+	Action   string `json:"action,omitempty"`
+	Outbound string `json:"outbound,omitempty"`
 }
