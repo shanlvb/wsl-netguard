@@ -1,0 +1,11 @@
+# Go build/test artifacts
+/wsl-netguard
+*.test
+coverage.out
+/bin/
+/dist/
+/.tools/
+
+# Local editor state
+.idea/
+.vscode/

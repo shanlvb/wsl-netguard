@@ -1,0 +1,29 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Project-local Codex configuration for wsl-netguard.
+# Kept intentionally lean for WSL/Go development.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "live"
+
+persistent_instructions = "Follow the project AGENTS.md. Prefer project-local ECC Go skills from .agents/skills when relevant. Keep network/system changes dry-run or render-only unless the user explicitly asks to execute them."
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 4
+max_depth = 1
+
+[agents.explorer]
+description = "Read-only codebase explorer for gathering evidence before changes."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "Read-only reviewer focused on correctness, network safety, security, and missing tests."
+config_file = "agents/reviewer.toml"
+
+[agents.docs_researcher]
+description = "Read-only documentation researcher for Go, WSL, sing-box, nftables, and systemd behavior."
+config_file = "agents/docs-researcher.toml"

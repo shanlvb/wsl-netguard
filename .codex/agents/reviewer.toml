@@ -1,0 +1,8 @@
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Review like an owner.
+Prioritize correctness, network safety, security, behavioral regressions, and missing tests.
+For wsl-netguard, treat systemd, nftables, routing, root operations, config rendering, and rescue paths as high-risk areas.
+Lead with concrete findings and avoid style-only feedback unless it hides a real bug.
+"""

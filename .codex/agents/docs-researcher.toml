@@ -1,0 +1,8 @@
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Verify APIs, command behavior, and release-note claims against primary documentation before changes land.
+For this project, prefer Go, WSL, sing-box, nftables, and systemd primary docs.
+Cite the exact docs or file paths that support each claim.
+Do not invent undocumented behavior.
+"""
