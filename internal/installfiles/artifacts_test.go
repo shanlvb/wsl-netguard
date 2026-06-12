@@ -71,6 +71,9 @@ func TestPlanArtifactsRendersConfigAndTemplates(t *testing.T) {
 	if !strings.Contains(singBoxUnit, "ExecStartPre=/usr/local/bin/wsl-netguard service render-sing-box") {
 		t.Fatalf("sing-box unit missing render hook:\n%s", singBoxUnit)
 	}
+	if !strings.Contains(singBoxUnit, "ExecStart=/usr/local/lib/wsl-netguard/sing-box run -c /run/wsl-netguard/sing-box.json") {
+		t.Fatalf("sing-box unit missing managed sing-box path:\n%s", singBoxUnit)
+	}
 }
 
 func TestPlanArtifactsRejectsInvalidConfig(t *testing.T) {

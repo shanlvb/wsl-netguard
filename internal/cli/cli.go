@@ -749,7 +749,7 @@ func (app *App) writeRuntimeArtifacts(cfg config.Config, gateway netdetect.Gatew
 }
 
 func (app *App) validateSingBoxConfig(ctx context.Context) error {
-	if err := app.runner.Run(ctx, "sing-box", "check", "-c", runtimefiles.SingBoxPath); err != nil {
+	if err := app.runner.Run(ctx, installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath); err != nil {
 		return fmt.Errorf("validate sing-box config: %w", err)
 	}
 	return nil

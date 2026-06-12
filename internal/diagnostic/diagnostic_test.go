@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/shanlvb/wsl-netguard/internal/config"
+	"github.com/shanlvb/wsl-netguard/internal/installfiles"
 )
 
 func TestProxyPortChecksProbeConfiguredV2rayNPorts(t *testing.T) {
@@ -153,14 +154,14 @@ func TestRuntimeChecksReportMissingTunAndNFTablesTable(t *testing.T) {
 func TestDependencyChecksReportRequiredAndOptionalCommands(t *testing.T) {
 	runner := &fakeOutputRunner{
 		outputs: map[string][]byte{
-			commandKey("systemctl", "--version"):  []byte("systemd 255\n"),
-			commandKey("nft", "--version"):        []byte("nftables v1.0.9\n"),
-			commandKey("ip", "-Version"):          []byte("ip utility\n"),
-			commandKey("curl", "--version"):       []byte("curl 8.0\n"),
-			commandKey("journalctl", "--version"): []byte("systemd 255\n"),
+			commandKey("systemctl", "--version"):                  []byte("systemd 255\n"),
+			commandKey("nft", "--version"):                        []byte("nftables v1.0.9\n"),
+			commandKey(installfiles.SingBoxBinaryPath, "version"): []byte("sing-box 1.13.13\n"),
+			commandKey("ip", "-Version"):                          []byte("ip utility\n"),
+			commandKey("curl", "--version"):                       []byte("curl 8.0\n"),
+			commandKey("journalctl", "--version"):                 []byte("systemd 255\n"),
 		},
 		errors: map[string]error{
-			commandKey("sing-box", "version"):     errors.New("missing"),
 			commandKey("nc", "-h"):                errors.New("missing"),
 			commandKey("resolvectl", "--version"): errors.New("missing"),
 		},
@@ -171,7 +172,7 @@ func TestDependencyChecksReportRequiredAndOptionalCommands(t *testing.T) {
 	want := []Check{
 		{Name: "dependency_systemd", Status: "installed", Detail: "required"},
 		{Name: "dependency_nft", Status: "installed", Detail: "required"},
-		{Name: "dependency_sing_box", Status: "missing", Detail: "required"},
+		{Name: "dependency_sing_box", Status: "installed", Detail: "required"},
 		{Name: "dependency_ip", Status: "installed", Detail: "required"},
 		{Name: "dependency_curl", Status: "installed", Detail: "required"},
 		{Name: "dependency_nc", Status: "missing", Detail: "optional"},

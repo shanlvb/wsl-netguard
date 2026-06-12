@@ -10,7 +10,7 @@
 
 本项目全程使用 Codex 辅助开发、测试和文档整理。开发过程中参考并使用了 [ECC](https://github.com/affaan-m/ECC) 的工程规范内容，感谢 ECC 项目提供的规则与实践启发。
 
-如果使用下方一键安装脚本，脚本会自动下载 release 产物并安装 `wsl-netguard` 受管理文件。手工安装流程则假设你已经获得可执行文件 `wsl-netguard`，并且 WSL 内具备运行 `sing-box`、`nftables` 和 systemd 服务的基础环境。
+如果使用下方一键安装脚本，脚本会自动下载 release 产物并安装 `wsl-netguard` 受管理文件，同时默认安装固定版本的受管理 `sing-box`。手工安装流程则假设你已经获得可执行文件 `wsl-netguard`，并且 WSL 内具备运行 `sing-box`、`nftables` 和 systemd 服务的基础环境。
 
 ## 解决的问题
 
@@ -106,7 +106,8 @@ Windows 侧：
 WSL 侧：
 
 - systemd 可用。
-- 已安装 `sing-box`、`nft`、`ip`、`curl`。
+- 已安装 `nft`、`ip`、`curl`。
+- 已安装受管理 `sing-box`，一键安装脚本默认安装到 `/usr/local/lib/wsl-netguard/sing-box`。
 - `/dev/net/tun` 可用。
 - 修改 systemd、nftables、接口和 `/etc` 时使用 `sudo`。
 
@@ -121,6 +122,7 @@ WSL 侧：
 
 ```text
 /usr/local/bin/wsl-netguard
+/usr/local/lib/wsl-netguard/sing-box
 /etc/wsl-netguard/config.json
 /etc/wsl-netguard/sing-box.template.json
 /etc/systemd/system/wsl-netguard-killswitch.service
@@ -272,27 +274,27 @@ curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.s
 
 ### 国内加速地址（可选）
 
-如果访问 GitHub raw 或 release 产物较慢，可以使用 GitHub 加速前缀。下面以 `https://gh.llkk.cc/` 为例：
+如果访问 GitHub raw 或 release 产物较慢，可以使用 GitHub 加速前缀。下面以 `https://gh-proxy.com/` 为例：
 
 ```bash
-curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/ bash
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh-proxy.com/ bash
 ```
 
 这里有两个加速点：
 
-- `https://gh.llkk.cc/https://raw.githubusercontent.com/...` 用于下载在线安装脚本本身。
-- `WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/` 会让脚本内部访问 GitHub API、release 包和 `checksums.txt` 时也使用同一个加速前缀。
+- `https://gh-proxy.com/https://raw.githubusercontent.com/...` 用于下载在线安装脚本本身。
+- `WSL_NETGUARD_GITHUB_PROXY=https://gh-proxy.com/` 会让脚本内部访问 GitHub API、release 包和 `checksums.txt` 时也使用同一个加速前缀。
 
 也可以把加速前缀作为脚本参数传入：
 
 ```bash
-curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --github-proxy https://gh.llkk.cc/
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --github-proxy https://gh-proxy.com/
 ```
 
-注意：这类 GitHub 加速服务是第三方服务，不是本项目或 GitHub 官方服务。只有在你信任该加速服务时才使用它；如果需要使用 `GH_TOKEN` 访问私有仓库，不建议把 token 发送给不可信的第三方加速服务。加速服务如果不支持 GitHub API 的 latest 查询，可以指定版本安装：
+注意：这类 GitHub 加速服务是第三方服务，不是本项目或 GitHub 官方服务。只有在你信任该加速服务时才使用它；如果某个加速服务返回 5xx 或超时，可以换用其他可信前缀。如果需要使用 `GH_TOKEN` 访问私有仓库，不建议把 token 发送给不可信的第三方加速服务。加速服务如果不支持 GitHub API 的 latest 查询，可以指定版本安装：
 
 ```bash
-curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh.llkk.cc/ bash -s -- --version v0.1.0
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_GITHUB_PROXY=https://gh-proxy.com/ bash -s -- --version v0.1.0
 ```
 
 脚本会执行以下动作：
@@ -302,6 +304,7 @@ curl -fsSL https://gh.llkk.cc/https://raw.githubusercontent.com/shanlvb/wsl-netg
 - 根据当前架构下载 GitHub Releases 中的 `linux_amd64` 或 `linux_arm64` 产物。
 - 下载 `checksums.txt` 并使用 `sha256sum -c` 校验 release 包。
 - 调用 `sudo wsl-netguard install` 安装二进制、默认配置、sing-box 模板和 systemd unit。
+- 下载固定版本 `sing-box v1.13.13` 官方 release 包，使用脚本内固定 SHA256 校验后安装到 `/usr/local/lib/wsl-netguard/sing-box`。
 
 默认安装不会启用网络接管，也不会应用 nftables kill switch。安装完成后建议先运行诊断：
 
@@ -335,6 +338,20 @@ curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.s
 curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --no-deps
 ```
 
+跳过受管理 `sing-box` 安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --no-sing-box
+```
+
+也可以通过环境变量跳过：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_INSTALL_SING_BOX=0 bash
+```
+
+跳过后需要自行把可执行的 `sing-box` 放到 `/usr/local/lib/wsl-netguard/sing-box`，否则 `wsl-netguard doctor` 会报告 `dependency_sing_box: missing (required)`，启用也会失败。
+
 如果仓库或 release 仍是私有状态，需要提供可读取仓库和 release 的 GitHub token：
 
 ```bash
@@ -345,7 +362,7 @@ curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
 
 脚本会把 `GH_TOKEN` 继续用于 GitHub API 和 release 产物下载。公开仓库不需要 token。
 
-注意：脚本不会从第三方源自动安装 `sing-box`。不同发行版的 `sing-box` 包源差异较大，请先按你信任的方式安装 `sing-box`，或在安装后根据 `wsl-netguard doctor` 的输出补齐。
+注意：脚本默认不会使用发行版第三方包源安装 `sing-box`，而是从 `SagerNet/sing-box` 官方 GitHub Release 下载固定版本并校验固定 SHA256。这样卸载时可以连同 `/usr/local/lib/wsl-netguard` 下的受管理运行时一起清理。
 
 ### 手工获取二进制
 
@@ -398,7 +415,7 @@ wsl-netguard --help
 sudo wsl-netguard install
 ```
 
-`install` 会写入受管理配置、systemd unit、sing-box 模板，并把当前可执行文件安装到 `/usr/local/bin/wsl-netguard`。它不会启用网络接管。
+`install` 会写入受管理配置、systemd unit、sing-box 模板，并把当前可执行文件安装到 `/usr/local/bin/wsl-netguard`。它不会启用网络接管。systemd 中的 sing-box 服务会使用 `/usr/local/lib/wsl-netguard/sing-box`，一键安装脚本默认会安装这个受管理二进制；手工安装时需要自行准备该文件。
 
 显式安装后立即启用：
 
@@ -482,7 +499,7 @@ sudo wsl-netguard disable
 sudo wsl-netguard uninstall
 ```
 
-`uninstall` 会先执行恢复动作，再删除受管理 systemd unit、配置模板、配置文件、安装后的二进制和可清理的配置目录。
+`uninstall` 会先执行恢复动作，再删除受管理 systemd unit、配置模板、配置文件、安装后的二进制、`/usr/local/lib/wsl-netguard` 下的受管理 sing-box 运行时和可清理的配置目录。
 
 ### 紧急救援
 

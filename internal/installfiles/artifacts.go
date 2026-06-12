@@ -11,6 +11,8 @@ import (
 
 const (
 	BinaryPath          = "/usr/local/bin/wsl-netguard"
+	ManagedLibDir       = "/usr/local/lib/wsl-netguard"
+	SingBoxBinaryPath   = ManagedLibDir + "/sing-box"
 	ConfigDir           = "/etc/wsl-netguard"
 	ConfigPath          = ConfigDir + "/config.json"
 	SingBoxTemplatePath = ConfigDir + "/sing-box.template.json"
@@ -41,7 +43,7 @@ func planArtifacts(cfg config.Config, binaryPath string) ([]runtimefiles.Artifac
 	if err != nil {
 		return nil, fmt.Errorf("render kill switch unit: %w", err)
 	}
-	singBoxUnit, err := render.SingBoxUnit(binaryPath)
+	singBoxUnit, err := render.SingBoxUnit(binaryPath, SingBoxBinaryPath)
 	if err != nil {
 		return nil, fmt.Errorf("render sing-box unit: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shanlvb/wsl-netguard/internal/config"
+	"github.com/shanlvb/wsl-netguard/internal/installfiles"
 	"github.com/shanlvb/wsl-netguard/internal/recovery"
 )
 
@@ -69,7 +70,7 @@ func DependencyChecks(ctx context.Context, runner OutputRunner) []Check {
 	dependencies := []dependency{
 		{name: "dependency_systemd", required: true, command: []string{"systemctl", "--version"}},
 		{name: "dependency_nft", required: true, command: []string{"nft", "--version"}},
-		{name: "dependency_sing_box", required: true, command: []string{"sing-box", "version"}},
+		{name: "dependency_sing_box", required: true, command: []string{installfiles.SingBoxBinaryPath, "version"}},
 		{name: "dependency_ip", required: true, command: []string{"ip", "-Version"}},
 		{name: "dependency_curl", required: true, command: []string{"curl", "--version"}},
 		{name: "dependency_nc", required: false, command: []string{"nc", "-h"}},

@@ -28,8 +28,11 @@ WantedBy=multi-user.target
 `, binaryPath), nil
 }
 
-func SingBoxUnit(binaryPath string) (string, error) {
+func SingBoxUnit(binaryPath string, singBoxPath string) (string, error) {
 	if err := validateBinaryPath(binaryPath); err != nil {
+		return "", err
+	}
+	if err := validateBinaryPath(singBoxPath); err != nil {
 		return "", err
 	}
 
@@ -41,7 +44,7 @@ Requires=wsl-netguard-killswitch.service
 [Service]
 Type=simple
 ExecStartPre=%s service render-sing-box
-ExecStart=/usr/bin/env sing-box run -c /run/wsl-netguard/sing-box.json
+ExecStart=%s run -c /run/wsl-netguard/sing-box.json
 Restart=always
 RestartSec=3
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
@@ -50,7 +53,7 @@ NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
-`, binaryPath), nil
+`, binaryPath, singBoxPath), nil
 }
 
 func validateBinaryPath(binaryPath string) error {

@@ -302,6 +302,10 @@ func uninstallSteps() []uninstallStep {
 			command: []string{"rm", "-f", installfiles.BinaryPath},
 		},
 		{
+			summary: "remove managed sing-box directory",
+			command: []string{"rm", "-rf", installfiles.ManagedLibDir},
+		},
+		{
 			summary: "remove managed config directory",
 			command: []string{"rmdir", installfiles.ConfigDir},
 		},

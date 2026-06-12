@@ -301,7 +301,7 @@ func TestInstallWithEnableInstallsThenEnables(t *testing.T) {
 		t.Fatalf("artifact batch lengths = %+v; want %+v", artifactBatchLengths, wantBatchLengths)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"nft", "-c", "-f", runtimefiles.NFTablesCheckPath},
 		{"nft", "delete", "table", recovery.NFTablesFamily, recovery.NFTablesTable},
 		{"nft", "-f", runtimefiles.NFTablesPath},
@@ -401,7 +401,7 @@ func TestEnableWritesRuntimeArtifactsAndStartsServicesInSafeOrder(t *testing.T) 
 		t.Fatalf("state artifact missing gateway interface:\n%s", string(writtenArtifacts[3].Data))
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"nft", "-c", "-f", runtimefiles.NFTablesCheckPath},
 		{"nft", "delete", "table", recovery.NFTablesFamily, recovery.NFTablesTable},
 		{"nft", "-f", runtimefiles.NFTablesPath},
@@ -465,7 +465,7 @@ func TestEnableStopsBeforeSystemdWhenKillSwitchApplyFails(t *testing.T) {
 		t.Fatalf("enable exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"nft", "-c", "-f", runtimefiles.NFTablesCheckPath},
 		{"nft", "delete", "table", recovery.NFTablesFamily, recovery.NFTablesTable},
 		{"nft", "-f", runtimefiles.NFTablesPath},
@@ -508,7 +508,7 @@ func TestEnableStopsBeforeKillSwitchWhenSingBoxValidationFails(t *testing.T) {
 		t.Fatalf("enable exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
 		t.Fatalf("runner commands = %+v; want %+v", runner.commands, wantCommands)
@@ -548,7 +548,7 @@ func TestEnableStopsBeforeDeletingManagedTableWhenKillSwitchValidationFails(t *t
 		t.Fatalf("enable exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"nft", "-c", "-f", runtimefiles.NFTablesCheckPath},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
@@ -591,7 +591,7 @@ func TestEnableIgnoresMissingManagedTableBeforeApplyingKillSwitch(t *testing.T) 
 		t.Fatalf("enable exit code = %d; want %d; stderr=%q", code, ExitOK, stderr.String())
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"nft", "-c", "-f", runtimefiles.NFTablesCheckPath},
 		{"nft", "delete", "table", recovery.NFTablesFamily, recovery.NFTablesTable},
 		{"nft", "-f", runtimefiles.NFTablesPath},
@@ -822,7 +822,7 @@ func TestRestartRendersRuntimeArtifactsAndRestartsInSafeOrder(t *testing.T) {
 		t.Fatalf("written artifact length = %d; want 4", len(writtenArtifacts))
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"systemctl", "restart", recovery.KillSwitchService},
 		{"systemctl", "restart", recovery.SingBoxService},
 	}
@@ -861,7 +861,7 @@ func TestRestartStopsBeforeServicesWhenSingBoxValidationFails(t *testing.T) {
 		t.Fatalf("restart exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
 		t.Fatalf("runner commands = %+v; want %+v", runner.commands, wantCommands)
@@ -916,7 +916,7 @@ func TestRestartStopsBeforeSingBoxWhenKillSwitchRestartFails(t *testing.T) {
 		t.Fatalf("restart exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 		{"systemctl", "restart", recovery.KillSwitchService},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
@@ -1039,6 +1039,7 @@ func TestUninstallRunsRecoveryBeforeRemovingManagedInstallFiles(t *testing.T) {
 		{"rm", "-f", installfiles.SingBoxUnitPath, installfiles.KillSwitchUnitPath},
 		{"rm", "-f", installfiles.SingBoxTemplatePath, installfiles.ConfigPath},
 		{"rm", "-f", installfiles.BinaryPath},
+		{"rm", "-rf", installfiles.ManagedLibDir},
 		{"rmdir", installfiles.ConfigDir},
 		{"systemctl", "daemon-reload"},
 	}
@@ -1050,6 +1051,7 @@ func TestUninstallRunsRecoveryBeforeRemovingManagedInstallFiles(t *testing.T) {
 		"ok: disable sing-box service autostart",
 		"ok: remove managed install files",
 		"ok: remove managed binary",
+		"ok: remove managed sing-box directory",
 		"ok: reload systemd units",
 		"uninstalled managed files",
 	} {
@@ -1090,7 +1092,7 @@ func TestUninstallIgnoresMissingManagedResourcesAndFiles(t *testing.T) {
 		3:  errors.New("Cannot find device \"wng-tun\""),
 		5:  errors.New("Unit file wsl-netguard-sing-box.service does not exist."),
 		6:  errors.New("Unit file wsl-netguard-killswitch.service does not exist."),
-		10: errors.New("rmdir: failed to remove '/etc/wsl-netguard': No such file or directory"),
+		11: errors.New("rmdir: failed to remove '/etc/wsl-netguard': No such file or directory"),
 	}}
 	app := NewApp(&stdout, &stderr,
 		WithGeteuid(func() int { return 0 }),
@@ -1652,7 +1654,7 @@ func TestServiceRenderSingBoxWritesRuntimeArtifacts(t *testing.T) {
 		t.Fatalf("state artifact missing render time:\n%s", string(writtenArtifacts[3].Data))
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
 		t.Fatalf("runner commands = %+v; want %+v", runner.commands, wantCommands)
@@ -1689,7 +1691,7 @@ func TestServiceRenderSingBoxReportsValidationError(t *testing.T) {
 		t.Fatalf("service render-sing-box exit code = %d; want %d", code, ExitError)
 	}
 	wantCommands := [][]string{
-		{"sing-box", "check", "-c", runtimefiles.SingBoxPath},
+		{installfiles.SingBoxBinaryPath, "check", "-c", runtimefiles.SingBoxPath},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
 		t.Fatalf("runner commands = %+v; want %+v", runner.commands, wantCommands)
@@ -2100,7 +2102,7 @@ func TestDoctorReturnsUnavailableForMissingRequiredDependency(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	outputRunner := doctorOutputRunner("default via 172.25.80.1 dev eth0 proto kernel\n")
-	outputRunner.errorsByCommand[cliCommandKey("sing-box", "version")] = errors.New("missing")
+	outputRunner.errorsByCommand[cliCommandKey(installfiles.SingBoxBinaryPath, "version")] = errors.New("missing")
 	app := NewApp(&stdout, &stderr,
 		WithConfigLoader(func(string) (config.Config, error) {
 			return config.Default(), nil
@@ -2589,7 +2591,7 @@ func doctorOutputRunner(defaultRoute string) *recordingOutputRunner {
 		outputs: map[string][]byte{
 			cliCommandKey("systemctl", "--version"):                             []byte("systemd 255\n"),
 			cliCommandKey("nft", "--version"):                                   []byte("nftables v1.0.9\n"),
-			cliCommandKey("sing-box", "version"):                                []byte("sing-box 1.10.0\n"),
+			cliCommandKey(installfiles.SingBoxBinaryPath, "version"):            []byte("sing-box 1.13.13\n"),
 			cliCommandKey("ip", "-Version"):                                     []byte("ip utility\n"),
 			cliCommandKey("curl", "--version"):                                  []byte("curl 8.0\n"),
 			cliCommandKey("journalctl", "--version"):                            []byte("systemd 255\n"),

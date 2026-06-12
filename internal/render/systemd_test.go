@@ -31,7 +31,7 @@ func TestKillSwitchUnitRendersDocumentedOrdering(t *testing.T) {
 }
 
 func TestSingBoxUnitRendersDocumentedDependencies(t *testing.T) {
-	unit, err := SingBoxUnit("/usr/local/bin/wsl-netguard")
+	unit, err := SingBoxUnit("/usr/local/bin/wsl-netguard", "/usr/local/lib/wsl-netguard/sing-box")
 	if err != nil {
 		t.Fatalf("SingBoxUnit returned error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestSingBoxUnitRendersDocumentedDependencies(t *testing.T) {
 		"[Service]",
 		"Type=simple",
 		"ExecStartPre=/usr/local/bin/wsl-netguard service render-sing-box",
-		"ExecStart=/usr/bin/env sing-box run -c /run/wsl-netguard/sing-box.json",
+		"ExecStart=/usr/local/lib/wsl-netguard/sing-box run -c /run/wsl-netguard/sing-box.json",
 		"Restart=always",
 		"RestartSec=3",
 		"AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW",
@@ -60,17 +60,13 @@ func TestSingBoxUnitRendersDocumentedDependencies(t *testing.T) {
 }
 
 func TestSystemdUnitsRejectRelativeBinaryPath(t *testing.T) {
-	for _, renderUnit := range []struct {
-		name string
-		fn   func(string) (string, error)
-	}{
-		{name: "kill switch", fn: KillSwitchUnit},
-		{name: "sing-box", fn: SingBoxUnit},
-	} {
-		t.Run(renderUnit.name, func(t *testing.T) {
-			if _, err := renderUnit.fn("wsl-netguard"); err == nil {
-				t.Fatal("unit renderer returned nil error for relative binary path; want error")
-			}
-		})
+	if _, err := KillSwitchUnit("wsl-netguard"); err == nil {
+		t.Fatal("kill switch unit renderer returned nil error for relative binary path; want error")
+	}
+	if _, err := SingBoxUnit("wsl-netguard", "/usr/local/lib/wsl-netguard/sing-box"); err == nil {
+		t.Fatal("sing-box unit renderer returned nil error for relative wsl-netguard path; want error")
+	}
+	if _, err := SingBoxUnit("/usr/local/bin/wsl-netguard", "sing-box"); err == nil {
+		t.Fatal("sing-box unit renderer returned nil error for relative sing-box path; want error")
 	}
 }
