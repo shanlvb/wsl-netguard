@@ -119,6 +119,7 @@ func nftablesRules(cfg config.Config, windowsHost netip.Addr, tableName string) 
 
 	switch cfg.Mode {
 	case config.ModeDev:
+		writeDevModeLocalBridgeRules(&b)
 		fmt.Fprintf(&b, "    ip daddr %s accept\n", windowsHost)
 	case config.ModeStrict:
 		fmt.Fprintf(&b, "    ip daddr %s tcp dport %s accept\n", windowsHost, strictTCPPortSet(cfg))
@@ -130,6 +131,12 @@ func nftablesRules(cfg config.Config, windowsHost netip.Addr, tableName string) 
 	fmt.Fprintln(&b, "  }")
 	fmt.Fprintln(&b, "}")
 	return b.String(), nil
+}
+
+func writeDevModeLocalBridgeRules(b *strings.Builder) {
+	for _, interfaceName := range []string{"docker0", "br-*"} {
+		fmt.Fprintf(b, "    oifname %q accept\n", interfaceName)
+	}
 }
 
 func validateRuntimeInput(cfg config.Config, windowsHost netip.Addr) error {

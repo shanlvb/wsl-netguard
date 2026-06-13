@@ -108,9 +108,12 @@ curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.s
 
 # 跳过受管理 sing-box 安装，需要自行提供 /usr/local/lib/wsl-netguard/sing-box
 curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --no-sing-box
+
+# 也可以通过环境变量跳过受管理 sing-box 安装
+curl -fsSL https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | WSL_NETGUARD_INSTALL_SING_BOX=0 bash
 ```
 
-### GitHub 加速
+### 国内加速 / GitHub 加速
 
 如果访问 GitHub raw 或 release 产物较慢，可以使用可信的 GitHub 加速前缀。下面以 `https://gh-proxy.com/` 为例：
 
@@ -124,7 +127,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/shanlvb/wsl-ne
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/shanlvb/wsl-netguard/main/install.sh | bash -s -- --github-proxy https://gh-proxy.com/
 ```
 
-这类加速服务不是本项目或 GitHub 官方服务，只有在你信任该服务时才使用。若加速服务不支持 GitHub API 的 latest 查询，可以指定版本安装。
+这类第三方加速服务不是本项目或 GitHub 官方服务，只有在你可信任该服务时才使用。若加速服务不支持 GitHub API 的 latest 查询，可以指定版本安装。
 
 ### 手工安装
 
@@ -228,7 +231,7 @@ sudo wsl-netguard restart
 
 网络模式：
 
-- `dev`：默认模式，阻止 WSL 直连外部网络，同时保留 WSL 与 Windows 宿主机之间的开发通信。
+- `dev`：默认模式，阻止 WSL 直连外部网络，同时保留 WSL 与 Windows 宿主机之间的开发通信，并允许 WSL 本机访问 Docker bridge 容器网络。
 - `strict`：只允许访问 Windows 宿主机上的配置代理端口，可能影响 IDE、调试器、语言服务器和 dev server 流量。
 
 切换模式：
@@ -379,7 +382,9 @@ sudo wsl-netguard restart
 
 ### 本地集群或容器异常
 
-`wsl-netguard` 不会删除 Docker、Kubernetes、kind 或 k3s 的规则，但启用后 WSL 出站行为会变化。出现异常时先恢复：
+`dev` 模式会放行 Docker 默认 bridge 和用户自定义 bridge 网络，Windows 宿主机通过 `127.0.0.1:<发布端口>` 访问 WSL Docker 服务时不应被 kill switch 阻断。
+
+`strict` 模式仍可能影响 Docker、Kubernetes、kind 或 k3s 的本地网络访问。出现异常时先恢复：
 
 ```bash
 sudo wsl-netguard disable

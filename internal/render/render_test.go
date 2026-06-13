@@ -179,6 +179,19 @@ func TestNFTablesDevRulesAllowWindowsHost(t *testing.T) {
 	mustNotContain(t, rules, "tcp dport")
 }
 
+func TestNFTablesDevRulesAllowDockerBridgeInterfaces(t *testing.T) {
+	cfg := config.Default()
+	host := netip.MustParseAddr("172.25.80.1")
+
+	rules, err := NFTablesRules(cfg, host)
+	if err != nil {
+		t.Fatalf("NFTablesRules returned error: %v", err)
+	}
+
+	mustContain(t, rules, `oifname "docker0" accept`)
+	mustContain(t, rules, `oifname "br-*" accept`)
+}
+
 func TestNFTablesStrictRulesWhitelistProxyPorts(t *testing.T) {
 	cfg := config.Default()
 	cfg.Mode = config.ModeStrict
@@ -194,6 +207,8 @@ func TestNFTablesStrictRulesWhitelistProxyPorts(t *testing.T) {
 	mustContain(t, rules, "ip daddr 172.25.80.1 tcp dport { 10808, 10809 } accept")
 	mustContain(t, rules, "ip daddr 172.25.80.1 udp dport 10808 accept")
 	mustNotContain(t, rules, "flush ruleset")
+	mustNotContain(t, rules, `oifname "docker0" accept`)
+	mustNotContain(t, rules, `oifname "br-*" accept`)
 	mustNotContain(t, rules, "ip daddr 172.25.80.1 accept")
 }
 
