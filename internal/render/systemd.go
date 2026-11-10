@@ -43,6 +43,9 @@ Requires=wsl-netguard-killswitch.service
 
 [Service]
 Type=simple
+StateDirectory=wsl-netguard
+StateDirectoryMode=0700
+UMask=0077
 ExecStartPre=%s service render-sing-box
 ExecStart=%s run -c /run/wsl-netguard/sing-box.json
 Restart=always

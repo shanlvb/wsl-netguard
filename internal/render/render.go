@@ -15,6 +15,9 @@ func SingBoxJSON(cfg config.Config, windowsHost netip.Addr) ([]byte, error) {
 		return nil, err
 	}
 
+	if err := validateFakeIPConfig(cfg); err != nil {
+		return nil, err
+	}
 	return marshalSingBoxDocument(singBoxDocumentFor(cfg, windowsHost.String()))
 }
 
@@ -23,6 +26,9 @@ func SingBoxTemplateJSON(cfg config.Config) ([]byte, error) {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}
 
+	if err := validateFakeIPConfig(cfg); err != nil {
+		return nil, err
+	}
 	return marshalSingBoxDocument(singBoxDocumentFor(cfg, "__WIN_HOST__"))
 }
 
@@ -35,6 +41,7 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 		},
 		DNS: singBoxDNS{
 			Servers: []singBoxDNSServer{
+				{Type: "fakeip", Tag: "fakeip", Inet4Range: "198.18.0.0/15"},
 				{
 					Type:       "https",
 					Tag:        "remote-doh",
@@ -44,6 +51,7 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 					Detour:     "proxy",
 				},
 			},
+			Rules:    []singBoxDNSRule{{QueryType: []string{"A", "AAAA"}, Action: "route", Server: "fakeip"}},
 			Final:    "remote-doh",
 			Strategy: cfg.DNSStrategy,
 		},
@@ -68,14 +76,12 @@ func singBoxDocumentFor(cfg config.Config, server string) singBoxDocument {
 				Version:    socksVersion(proxyType),
 			},
 		},
+		Experimental: singBoxExperimental{CacheFile: singBoxCacheFile{Enabled: true, Path: FakeIPCachePath, StoreFakeIP: true}},
 		Route: singBoxRoute{
 			Rules: []singBoxRouteRule{
 				{
-					Action: "sniff",
-				},
-				{
-					Protocol: "dns",
-					Action:   "hijack-dns",
+					Port:   53,
+					Action: "hijack-dns",
 				},
 			},
 			AutoDetectInterface: true,
@@ -129,6 +135,7 @@ func nftablesRules(cfg config.Config, windowsHost netip.Addr, tableName string) 
 	}
 
 	fmt.Fprintln(&b, "  }")
+	writeDockerForwardRules(&b, cfg, windowsHost)
 	fmt.Fprintln(&b, "}")
 	return b.String(), nil
 }
@@ -176,11 +183,12 @@ func strictTCPPortSet(cfg config.Config) string {
 }
 
 type singBoxDocument struct {
-	Log       singBoxLog        `json:"log"`
-	DNS       singBoxDNS        `json:"dns"`
-	Inbounds  []singBoxInbound  `json:"inbounds"`
-	Outbounds []singBoxOutbound `json:"outbounds"`
-	Route     singBoxRoute      `json:"route"`
+	Experimental singBoxExperimental `json:"experimental"`
+	Log          singBoxLog          `json:"log"`
+	DNS          singBoxDNS          `json:"dns"`
+	Inbounds     []singBoxInbound    `json:"inbounds"`
+	Outbounds    []singBoxOutbound   `json:"outbounds"`
+	Route        singBoxRoute        `json:"route"`
 }
 
 type singBoxLog struct {
@@ -189,18 +197,20 @@ type singBoxLog struct {
 }
 
 type singBoxDNS struct {
+	Rules    []singBoxDNSRule   `json:"rules"`
 	Servers  []singBoxDNSServer `json:"servers"`
 	Final    string             `json:"final"`
 	Strategy string             `json:"strategy"`
 }
 
 type singBoxDNSServer struct {
+	Inet4Range string `json:"inet4_range,omitempty"`
 	Type       string `json:"type"`
 	Tag        string `json:"tag"`
-	Server     string `json:"server"`
-	ServerPort int    `json:"server_port"`
-	Path       string `json:"path"`
-	Detour     string `json:"detour"`
+	Server     string `json:"server,omitempty"`
+	ServerPort int    `json:"server_port,omitempty"`
+	Path       string `json:"path,omitempty"`
+	Detour     string `json:"detour,omitempty"`
 }
 
 type singBoxInbound struct {
@@ -229,6 +239,7 @@ type singBoxRoute struct {
 }
 
 type singBoxRouteRule struct {
+	Port     int    `json:"port,omitempty"`
 	Protocol string `json:"protocol,omitempty"`
 	Action   string `json:"action,omitempty"`
 	Outbound string `json:"outbound,omitempty"`

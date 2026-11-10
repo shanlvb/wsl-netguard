@@ -12,6 +12,7 @@ import (
 	"github.com/shanlvb/wsl-netguard/internal/netdetect"
 	"github.com/shanlvb/wsl-netguard/internal/privilege"
 	"github.com/shanlvb/wsl-netguard/internal/recovery"
+	"github.com/shanlvb/wsl-netguard/internal/render"
 	"github.com/shanlvb/wsl-netguard/internal/runtimefiles"
 )
 
@@ -46,6 +47,7 @@ func (app *App) executeRecoveryActions(actions []recovery.Action) bool {
 		}
 		fmt.Fprintf(app.stdout, "ok: %s\n", result.Action.Summary)
 	}
+	fmt.Fprintln(app.stdout, "Applications may still cache FakeIP addresses; restart affected applications or clear their DNS cache before reconnecting.")
 	if recovery.HasFailures(results) {
 		return false
 	}
@@ -310,6 +312,14 @@ func uninstallSteps() []uninstallStep {
 			command: []string{"rmdir", installfiles.ConfigDir},
 		},
 		{
+			summary: "remove persistent FakeIP cache",
+			command: []string{"rm", "-f", render.FakeIPCachePath},
+		},
+		{
+			summary: "remove empty state directory",
+			command: []string{"rmdir", render.StateDirectory},
+		},
+		{
 			summary: "reload systemd units",
 			command: []string{"systemctl", "daemon-reload"},
 		},
@@ -325,14 +335,14 @@ func (app *App) runUninstallStep(step uninstallStep) error {
 	if err == nil {
 		return nil
 	}
-	if recovery.IsMissingManagedResourceError(step.command, err) || isIgnorableConfigDirRemovalError(step.command, err) {
+	if recovery.IsMissingManagedResourceError(step.command, err) || isIgnorableManagedDirRemovalError(step.command, err) {
 		return nil
 	}
 	return fmt.Errorf("%s: %w", step.summary, err)
 }
 
-func isIgnorableConfigDirRemovalError(command []string, err error) bool {
-	if err == nil || len(command) != 2 || command[0] != "rmdir" || command[1] != installfiles.ConfigDir {
+func isIgnorableManagedDirRemovalError(command []string, err error) bool {
+	if err == nil || len(command) != 2 || command[0] != "rmdir" || (command[1] != installfiles.ConfigDir && command[1] != render.StateDirectory) {
 		return false
 	}
 

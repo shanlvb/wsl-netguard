@@ -27,10 +27,10 @@ func TestSingBoxJSONRendersSOCKSProxy(t *testing.T) {
 	if got.DNS.Strategy != cfg.DNSStrategy {
 		t.Fatalf("DNS strategy = %q; want %q", got.DNS.Strategy, cfg.DNSStrategy)
 	}
-	if len(got.DNS.Servers) != 1 {
-		t.Fatalf("DNS servers length = %d; want 1", len(got.DNS.Servers))
+	if len(got.DNS.Servers) != 2 {
+		t.Fatalf("DNS servers length = %d; want 2", len(got.DNS.Servers))
 	}
-	dnsServer := got.DNS.Servers[0]
+	dnsServer := got.DNS.Servers[1]
 	if dnsServer.Type != "https" {
 		t.Fatalf("DNS server type = %q; want https", dnsServer.Type)
 	}
@@ -88,15 +88,12 @@ func TestSingBoxJSONRendersSOCKSProxy(t *testing.T) {
 	if got.Route.Final != "proxy" {
 		t.Fatalf("route final = %q; want proxy", got.Route.Final)
 	}
-	if len(got.Route.Rules) != 2 {
-		t.Fatalf("route rules length = %d; want 2", len(got.Route.Rules))
+	if len(got.Route.Rules) != 1 {
+		t.Fatalf("route rules length = %d; want 1", len(got.Route.Rules))
 	}
-	if got.Route.Rules[0].Action != "sniff" {
-		t.Fatalf("first route rule action = %q; want sniff", got.Route.Rules[0].Action)
-	}
-	dnsRule := got.Route.Rules[1]
-	if dnsRule.Protocol != "dns" {
-		t.Fatalf("route rule protocol = %q; want dns", dnsRule.Protocol)
+	dnsRule := got.Route.Rules[0]
+	if dnsRule.Port != 53 {
+		t.Fatalf("route rule port = %d; want 53", dnsRule.Port)
 	}
 	if dnsRule.Action != "hijack-dns" {
 		t.Fatalf("route rule action = %q; want hijack-dns", dnsRule.Action)
@@ -291,6 +288,7 @@ type testOutbound struct {
 }
 
 type testRouteRule struct {
+	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
 	Action   string `json:"action"`
 	Outbound string `json:"outbound"`

@@ -10,6 +10,7 @@
 - [环境要求](#环境要求)
 - [安装](#安装)
 - [配置](#配置)
+- [域名透传与 DNS](#域名透传与-dns)
 - [启用与验证](#启用与验证)
 - [卸载与残余清理](#卸载与残余清理)
 - [安全边界](#安全边界)
@@ -174,7 +175,7 @@ ARM64 WSL 请下载 `linux_arm64` 产物。手工安装时需要自行准备 `/u
 | `http_port` | `10809` | Windows 宿主机 HTTP 代理端口 |
 | `tun_interface` | `wng-tun` | 受管理 TUN 接口名 |
 | `tun_address` | `172.19.0.1/30` | TUN 接口 IPv4 CIDR |
-| `dns_strategy` | `ipv4_only` | sing-box DNS 策略 |
+| `dns_strategy` | `ipv4_only` | 当前 FakeIP 仅支持此值；其他策略在生成配置时明确报错 |
 
 常用命令：
 
@@ -203,6 +204,38 @@ sudo wsl-netguard config set proxy-protocol http
 sudo wsl-netguard config set http-port 7890
 sudo wsl-netguard restart
 ```
+
+## 域名透传与 DNS
+
+默认启用 IPv4 FakeIP，适用于 sing-box 1.13.13。被 TUN 接管的 TCP/UDP 53 端口 DNS 查询中，A 返回 `198.18.0.0/15` 内的虚拟地址，AAAA 返回空答案。应用连接虚拟地址时，sing-box 恢复原始域名，经 SOCKS5 域名请求或 HTTP CONNECT 交给 Windows 代理。SSH、MySQL 等服务端先发数据的协议不依赖 HTTP/TLS 嗅探，也不会被 CNAME 或 SNI 替换原始域名。
+
+例如：`codeup.aliyun.com → FakeIP → SOCKS5 codeup.aliyun.com:22 → Windows 域名规则 → 外部解析并连接`。WSL 不维护业务域名白名单或国内外分流规则，也没有解析失败后直连的回退。
+
+HTTPS 即使在访问日志中显示 IP，也可能由 Windows 侧通过 TLS 嗅探命中域名规则；域名拼写错误应先修正。FakeIP 的主要价值是统一保留原始域名，覆盖 SSH、MySQL 等无法依靠 HTTP/TLS 嗅探的协议，而非修复所有 HTTPS 分流问题的必要条件。
+
+真实地址解析由 Windows 代理及后续出站决定。配置了“直连 DNS / 远程 DNS”不代表它们一定用于最终连接；以 v2rayN 为例，目标解析策略为空或 `AsIs` 时，直连可能使用 Windows 系统 DNS，代理可能由远端服务器解析。要使用指定的国内 / 国外 DNS，还需配置外部代理的对应目标解析策略。netguard 不修改这些设置。
+
+| 情形 | 行为与边界 |
+| --- | --- |
+| TXT、SRV、MX、HTTPS、SVCB 等非地址查询 | 保留经代理访问 `1.1.1.1` DoH 的路径，不交给 FakeIP；HTTPS/SVCB 地址提示可能让应用直接使用真实 IP |
+| 直接 IP、hosts、已有真实 IP 缓存、应用自带 DoH/DoT | 保持 IP 转发，不猜测原域名；不保证命中外部域名规则 |
+| 回环与 hosts | 保留现有 NSS/hosts 和回环路径；绕过 hosts 直接查询 DNS 的应用不享有该保证 |
+| Docker 服务名 | 保留 Docker `127.0.0.11` 内部服务发现；其外部查询与后续连接必须都经过同一 netguard |
+| 私有 DNS / 内网域名 | 不自动猜测本地域名；若查询被接管，外部必须能够解析并访问目标。域名指向回环时尤其需要注意连接发生在哪台机器 |
+| UDP | 依赖 SOCKS5 上游 UDP 支持；HTTP 代理不支持普通 UDP，不自动切换协议 |
+| IPv6 | 当前只提供 IPv4 虚拟地址，不宣称支持 IPv6 TUN；外部代理最终选用 IPv4/IPv6 由其自行决定 |
+
+`198.18.0.0/15` 专用于 FakeIP，不应与实际业务网络或现有路由重叠；配置中的 TUN 地址若重叠会报错。不存在的域名可能到连接时才失败。FakeIP 不适合依赖真实 IP 做判断、ICMP 诊断或把解析结果交给另一台机器的程序。
+
+Docker 转发保护仅匹配从 `docker0`、`br-*` 进入的流量：允许进入 TUN，保留模式允许的本地通信和已建立入站连接的回复，其余丢弃。只向工具自己的 nftables 表添加规则，不改 Docker 表；其他防火墙仍可能拒绝流量。自定义桥名称、macvlan、其他容器网络不属于此覆盖范围。
+
+### 升级、重启与停用
+
+映射保存在 `/var/lib/wsl-netguard/cache.db`，由 systemd 创建权限为 `0700` 的状态目录，服务使用 `UMask=0077`。正常重启、`disable` 和 `rescue` 保留映射；`uninstall` 删除该缓存，保留目录中的其他文件。缓存包含查询过的域名，不应公开分享。
+
+从旧版本升级必须重新执行新版 `install` 更新 systemd unit，并执行 `systemctl daemon-reload`，再启用或重启服务；仅替换二进制不足以安装状态目录配置。默认 `ipv4_only` 配置无需增加字段，旧的其他 DNS 策略需先改为 `ipv4_only`；旧配置仍可用于 `disable` / `rescue`。
+
+启用前已有的真实 IP 缓存和连接不会自动转换成域名连接，需要重新解析、重建连接。停用后，仍缓存 FakeIP 的应用需要重启或清理其自身 DNS 缓存；工具只提示，不自动清理任意应用缓存。不要在服务运行时删除映射缓存。正常重启的映射保留已验证，但异常断电不能保证所有异步写入已落盘；缺失映射会拒绝连接，不把未知虚拟地址发往上游。
 
 ## 启用与验证
 
@@ -257,7 +290,7 @@ curl --max-time 8 https://api.ipify.org
 sudo wsl-netguard disable
 ```
 
-`disable` 会停止相关 systemd 服务，删除 `table inet wsl_netguard`，删除受管理 TUN 接口，并清理 `/run/wsl-netguard`。它会保留安装文件和配置。
+`disable` 会停止相关 systemd 服务，删除 `table inet wsl_netguard`，删除受管理 TUN 接口，并清理 `/run/wsl-netguard`。它会保留安装文件、配置和 FakeIP 映射缓存。停用后请重启仍缓存虚拟地址的应用，或清理该应用的 DNS 缓存。
 
 ### 正常卸载
 
@@ -274,6 +307,7 @@ sudo wsl-netguard uninstall
 - `/etc/systemd/system/wsl-netguard-killswitch.service`
 - `/etc/systemd/system/wsl-netguard-sing-box.service`
 - `/run/wsl-netguard`
+- `/var/lib/wsl-netguard/cache.db`（仅删除此文件，目录非空时保留）
 - `table inet wsl_netguard`
 - 默认或配置中的 TUN 接口
 
@@ -298,6 +332,8 @@ sudo rm -rf /usr/local/lib/wsl-netguard
 sudo rm -f /etc/wsl-netguard/config.json
 sudo rm -f /etc/wsl-netguard/sing-box.template.json
 sudo rmdir /etc/wsl-netguard 2>/dev/null || true
+sudo rm -f /var/lib/wsl-netguard/cache.db
+sudo rmdir /var/lib/wsl-netguard 2>/dev/null || true
 sudo systemctl daemon-reload
 sudo systemctl reset-failed wsl-netguard-sing-box.service wsl-netguard-killswitch.service 2>/dev/null || true
 ```
@@ -327,6 +363,7 @@ sudo rm -rf /etc/wsl-netguard
 /run/wsl-netguard/nftables.nft
 /run/wsl-netguard/nftables.check.nft
 /run/wsl-netguard/state.json
+/var/lib/wsl-netguard/cache.db
 table inet wsl_netguard
 wng-tun
 ```
@@ -399,6 +436,15 @@ go fmt ./...
 go test ./...
 go test -cover ./...
 ```
+
+FakeIP 协议集成测试（本地回环端口和临时文件，不修改系统网络）：
+
+```bash
+WSL_NETGUARD_SING_BOX=/usr/local/lib/wsl-netguard/sing-box \
+go test -race ./internal/render -run TestFakeIP -v
+```
+
+测试使用真实 sing-box 1.13.13 和模拟上游，验证域名/端口、服务端先发数据、地址族、映射正常重启与缺失映射拒绝。非地址 DNS 测试用可控 TCP DNS 替换公共 DoH，验证规则选择和代理路径。未设置变量时跳过协议集成测试。真实 WSL TUN、Docker 转发/服务发现/发布端口、上游 UDP 和 v2rayN 分流仍需部署后的现场验收，不能由这些本地测试代替。
 
 本地构建：
 

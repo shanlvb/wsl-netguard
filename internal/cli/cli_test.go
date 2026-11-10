@@ -1041,6 +1041,8 @@ func TestUninstallRunsRecoveryBeforeRemovingManagedInstallFiles(t *testing.T) {
 		{"rm", "-f", installfiles.BinaryPath},
 		{"rm", "-rf", installfiles.ManagedLibDir},
 		{"rmdir", installfiles.ConfigDir},
+		{"rm", "-f", "/var/lib/wsl-netguard/cache.db"},
+		{"rmdir", "/var/lib/wsl-netguard"},
 		{"systemctl", "daemon-reload"},
 	}
 	if !reflect.DeepEqual(runner.commands, wantCommands) {
